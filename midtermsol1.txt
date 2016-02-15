@@ -1,0 +1,91 @@
+#####################################################################
+#
+# CAS CS 320, Fall 2015
+# Midterm (solutions)
+# interpret.py
+#
+#  ****************************************************************
+#  *************** Modify this file for Problem #2. ***************
+#  ****************************************************************
+#
+
+exec(open("parse.py").read())
+exec(open("analyze.py").read())
+
+Node = dict
+Leaf = str
+
+def evalExpression(env, e):
+    if type(e) == Leaf:
+        if e == 'True':
+            return 'True'
+        if e == 'False':
+            return 'False'
+    if type(e) == Node:
+        for label in e:
+            children = e[label]
+            if label == 'Variable':
+                x = var['Variable'][0]
+                if x in env:
+                    return env[x]
+                else:
+                    print(x + " is unbound.")
+                    exit()
+                return children[0]
+            elif label == 'Number':
+                return children[0]
+            elif label == 'Element':
+                [var, e] = children
+                x = var['Variable'][0]
+                n = evaluate(env, e)
+                if x in env:
+                    return env[x][n['Number'][0]]
+                else:
+                    print(x + " is unbound.")
+                    exit()
+            elif label == 'Plus':
+                [f1, f2] = children
+                v1 = evaluate(env, f1)
+                v2 = evaluate(env, f2)
+                return {'Number':[v1['Number'][0] + v2['Number'][0]]}
+
+def execProgram(env, s):
+    if type(s) == Leaf:
+        if s == 'End':
+            return (env, [])
+    elif type(s) == Node:
+        for label in s:
+            if label == 'Print':
+                [e,p] = s[label]
+                v = evalExpression(env, e)
+                (env, o) = execProgram(env, p)
+                return (env, [v] + o)
+            elif label == 'Assign':
+                [var, e0, e1, e2, p] = s[label]
+                x = var['Variable'][0]
+                env[x] = {'Array':[evalExpression(env, e) for e in [e0,e1,e2]]}
+                (env, o) = execProgram(env, p)
+                return (env, o)
+            elif label == 'Loop':
+                [xTree, nTree, p1, p2] = s[label]
+                x = xTree['Variable'][0]
+                n = nTree['Number'][0]
+                env[x] = n
+                if n >= 0:
+                    (env, o1) = execProgram(env, p1) # Run body.
+                    (env, o2) = execProgram(env, {'Loop':[xTree, {'Number':[n-1]}, p1, p2]})
+                else:
+                    o1 = []
+                    (env, o2) = execProgram(env, p2)
+                return (env, o1+o2)
+
+def interpret(s):
+    p = tokenizeAndParse(s)
+    if typeProgram({}, p) == 'TyVoid':
+        (env, o) = execProgram({}, p)
+        return o
+    else:
+        print("The program is not well-typed.")
+        exit()
+
+#eof
